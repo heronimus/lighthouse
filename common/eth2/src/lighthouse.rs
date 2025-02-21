@@ -17,6 +17,7 @@ use proto_array::core::ProtoArray;
 use serde::{Deserialize, Serialize};
 use ssz::four_byte_option_impl;
 use ssz_derive::{Decode, Encode};
+use std::path::PathBuf;
 use store::{AnchorInfo, BlobInfo, Split, StoreConfig};
 
 pub use attestation_performance::{
@@ -144,6 +145,8 @@ pub struct SystemHealth {
     /// Total cpu time.
     pub cpu_time_total: u64,
 
+    /// Path being monitored for disk usage
+    pub disk_monitor_path: PathBuf,
     /// Total capacity of disk.
     pub disk_node_bytes_total: u64,
     /// Free space in disk.
@@ -166,12 +169,12 @@ pub struct SystemHealth {
 
 impl SystemHealth {
     #[cfg(not(target_os = "linux"))]
-    pub fn observe() -> Result<Self, String> {
+    pub fn observe(_disk_monitor_path: PathBuf) -> Result<Self, String> {
         Err("Health is only available on Linux".into())
     }
 
     #[cfg(target_os = "linux")]
-    pub fn observe() -> Result<Self, String> {
+    pub fn observe(disk_monitor_path: PathBuf) -> Result<Self, String> {
         let vm = psutil::memory::virtual_memory()
             .map_err(|e| format!("Unable to get virtual memory: {:?}", e))?;
         let loadavg =
@@ -180,8 +183,12 @@ impl SystemHealth {
         let cpu =
             psutil::cpu::cpu_times().map_err(|e| format!("Unable to get cpu times: {:?}", e))?;
 
-        let disk_usage = psutil::disk::disk_usage("/")
-            .map_err(|e| format!("Unable to disk usage info: {:?}", e))?;
+        let disk_usage = psutil::disk::disk_usage(&monitor_path).map_err(|e| {
+            format!(
+                "Unable to get disk usage info for {:?}: {:?}",
+                monitor_path, e
+            )
+        })?;
 
         let disk = psutil::disk::DiskIoCountersCollector::default()
             .disk_io_counters()

@@ -169,12 +169,12 @@ pub struct SystemHealth {
 
 impl SystemHealth {
     #[cfg(not(target_os = "linux"))]
-    pub fn observe(_disk_monitor_path: PathBuf) -> Result<Self, String> {
+    pub fn observe(_disk_monitor_path: Option<PathBuf>) -> Result<Self, String> {
         Err("Health is only available on Linux".into())
     }
 
     #[cfg(target_os = "linux")]
-    pub fn observe(disk_monitor_path: PathBuf) -> Result<Self, String> {
+    pub fn observe(disk_monitor_path: Option<PathBuf>) -> Result<Self, String> {
         let vm = psutil::memory::virtual_memory()
             .map_err(|e| format!("Unable to get virtual memory: {:?}", e))?;
         let loadavg =
@@ -183,12 +183,13 @@ impl SystemHealth {
         let cpu =
             psutil::cpu::cpu_times().map_err(|e| format!("Unable to get cpu times: {:?}", e))?;
 
-        let disk_usage = psutil::disk::disk_usage(&monitor_path).map_err(|e| {
-            format!(
-                "Unable to get disk usage info for {:?}: {:?}",
-                monitor_path, e
-            )
-        })?;
+        let disk_usage = psutil::disk::disk_usage(disk_monitor_path.unwrap_or_default("/"))
+            .map_err(|e| {
+                format!(
+                    "Unable to get disk usage info for {:?}: {:?}",
+                    disk_monitor_path, e
+                )
+            })?;
 
         let disk = psutil::disk::DiskIoCountersCollector::default()
             .disk_io_counters()
@@ -222,6 +223,7 @@ impl SystemHealth {
             user_seconds_total: cpu.user().as_secs(),
             iowait_seconds_total: cpu.iowait().as_secs(),
             idle_seconds_total: cpu.idle().as_secs(),
+            disk_monitor_path: disk_usage.mountpoint().to_string(),
             disk_node_bytes_total: disk_usage.total(),
             disk_node_bytes_free: disk_usage.free(),
             disk_node_reads_total: disk.read_count(),
@@ -291,15 +293,15 @@ impl ProcessHealth {
 
 impl Health {
     #[cfg(not(target_os = "linux"))]
-    pub fn observe() -> Result<Self, String> {
+    pub fn observe(_disk_monitor_path: PathBuf) -> Result<Self, String> {
         Err("Health is only available on Linux".into())
     }
 
     #[cfg(target_os = "linux")]
-    pub fn observe() -> Result<Self, String> {
+    pub fn observe(disk_monitor_path: PathBuf) -> Result<Self, String> {
         Ok(Self {
             process: ProcessHealth::observe()?,
-            system: SystemHealth::observe()?,
+            system: SystemHealth::observe(disk_monitor_path)?,
         })
     }
 }

@@ -4039,7 +4039,7 @@ pub fn serve<T: BeaconChainTypes>(
         .and(warp::path("health"))
         .and(warp::path::end())
         .and(task_spawner_filter.clone())
-        .and(data_dir_filter)
+        .and(data_dir_filter.clone())
         .then(|task_spawner: TaskSpawner<T::EthSpec>, data_dir: PathBuf| {
             task_spawner.blocking_json_task(Priority::P0, move || {
                 eth2::lighthouse::Health::observe(data_dir)
@@ -4056,7 +4056,7 @@ pub fn serve<T: BeaconChainTypes>(
         .and(task_spawner_filter.clone())
         .and(system_info_filter)
         .and(app_start_filter)
-        .and(data_dir_filter)
+        .and(data_dir_filter.clone())
         .and(network_globals.clone())
         .then(
             |task_spawner: TaskSpawner<T::EthSpec>,

@@ -18,3 +18,4 @@ genesis.ssz
 
 # VSCode
 /.vscode
+.secret/

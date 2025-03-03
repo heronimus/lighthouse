@@ -8,10 +8,6 @@ use {
 };
 
 pub trait Observe: Sized {
-    #[cfg(not(target_os = "linux"))]
-    fn observe(_data_dir: PathBuf) -> Result<Self, String>;
-
-    #[cfg(target_os = "linux")]
     fn observe(data_dir: PathBuf) -> Result<Self, String>;
 }
 
@@ -37,7 +33,7 @@ impl Observe for SystemHealth {
     }
 
     #[cfg(target_os = "linux")]
-    fn observe(_data_dir: PathBuf) -> Result<Self, String> {
+    fn observe(data_dir: PathBuf) -> Result<Self, String> {
         let vm = psutil::memory::virtual_memory()
             .map_err(|e| format!("Unable to get virtual memory: {:?}", e))?;
         let loadavg =

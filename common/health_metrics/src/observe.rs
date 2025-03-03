@@ -1,4 +1,5 @@
 use eth2::lighthouse::{Health, ProcessHealth, SystemHealth};
+use std::path::PathBuf;
 
 #[cfg(target_os = "linux")]
 use {
@@ -7,32 +8,36 @@ use {
 };
 
 pub trait Observe: Sized {
-    fn observe() -> Result<Self, String>;
+    #[cfg(not(target_os = "linux"))]
+    fn observe(_data_dir: PathBuf) -> Result<Self, String>;
+
+    #[cfg(target_os = "linux")]
+    fn observe(data_dir: PathBuf) -> Result<Self, String>;
 }
 
 impl Observe for Health {
     #[cfg(not(target_os = "linux"))]
-    fn observe() -> Result<Self, String> {
+    fn observe(_data_dir: PathBuf) -> Result<Self, String> {
         Err("Health is only available on Linux".into())
     }
 
     #[cfg(target_os = "linux")]
-    fn observe() -> Result<Self, String> {
+    fn observe(data_dir: PathBuf) -> Result<Self, String> {
         Ok(Self {
             process: ProcessHealth::observe()?,
-            system: SystemHealth::observe()?,
+            system: SystemHealth::observe(data_dir)?,
         })
     }
 }
 
 impl Observe for SystemHealth {
     #[cfg(not(target_os = "linux"))]
-    fn observe() -> Result<Self, String> {
+    fn observe(_data_dir: PathBuf) -> Result<Self, String> {
         Err("Health is only available on Linux".into())
     }
 
     #[cfg(target_os = "linux")]
-    fn observe() -> Result<Self, String> {
+    fn observe(_data_dir: PathBuf) -> Result<Self, String> {
         let vm = psutil::memory::virtual_memory()
             .map_err(|e| format!("Unable to get virtual memory: {:?}", e))?;
         let loadavg =
@@ -41,8 +46,8 @@ impl Observe for SystemHealth {
         let cpu =
             psutil::cpu::cpu_times().map_err(|e| format!("Unable to get cpu times: {:?}", e))?;
 
-        let disk_usage = psutil::disk::disk_usage("/")
-            .map_err(|e| format!("Unable to disk usage info: {:?}", e))?;
+        let disk_usage = psutil::disk::disk_usage(&data_dir)
+            .map_err(|e| format!("Unable to disk usage info for {:?}: {:?}", data_dir, e))?;
 
         let disk = psutil::disk::DiskIoCountersCollector::default()
             .disk_io_counters()

@@ -18,9 +18,9 @@ impl Observe for Health {
     }
 
     #[cfg(target_os = "linux")]
-    fn observe(data_dir: PathBuf) -> Result<Self, String> {
+    fn observe(data_dir: Option<PathBuf>) -> Result<Self, String> {
         Ok(Self {
-            process: ProcessHealth::observe(data_dir)?,
+            process: ProcessHealth::observe()?,
             system: SystemHealth::observe(data_dir)?,
         })
     }
@@ -33,7 +33,7 @@ impl Observe for SystemHealth {
     }
 
     #[cfg(target_os = "linux")]
-    fn observe(data_dir: PathBuf) -> Result<Self, String> {
+    fn observe(data_dir: Option<PathBuf>) -> Result<Self, String> {
         let vm = psutil::memory::virtual_memory()
             .map_err(|e| format!("Unable to get virtual memory: {:?}", e))?;
         let loadavg =
@@ -42,8 +42,18 @@ impl Observe for SystemHealth {
         let cpu =
             psutil::cpu::cpu_times().map_err(|e| format!("Unable to get cpu times: {:?}", e))?;
 
-        let disk_usage = psutil::disk::disk_usage(&data_dir)
-            .map_err(|e| format!("Unable to disk usage info for {:?}: {:?}", data_dir, e))?;
+        let disk_usage = if let Some(data_dir) = &data_dir {
+            psutil::disk::disk_usage(data_dir)
+                .map_err(|e| format!("Unable to disk usage info for {:?}: {:?}", data_dir, e))?
+        } else {
+            // Use root directory if no data_dir is provided
+            psutil::disk::disk_usage("/").map_err(|e| {
+                format!(
+                    "Unable to disk usage info for root ('/') directory: {:?}",
+                    e
+                )
+            })?
+        };
 
         let disk = psutil::disk::DiskIoCountersCollector::default()
             .disk_io_counters()

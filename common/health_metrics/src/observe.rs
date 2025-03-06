@@ -8,19 +8,19 @@ use {
 };
 
 pub trait Observe: Sized {
-    fn observe(data_dir: PathBuf) -> Result<Self, String>;
+    fn observe(data_dir: Option<PathBuf>) -> Result<Self, String>;
 }
 
 impl Observe for Health {
     #[cfg(not(target_os = "linux"))]
-    fn observe(_data_dir: PathBuf) -> Result<Self, String> {
+    fn observe() -> Result<Self, String> {
         Err("Health is only available on Linux".into())
     }
 
     #[cfg(target_os = "linux")]
     fn observe(data_dir: PathBuf) -> Result<Self, String> {
         Ok(Self {
-            process: ProcessHealth::observe()?,
+            process: ProcessHealth::observe(data_dir)?,
             system: SystemHealth::observe(data_dir)?,
         })
     }
@@ -28,7 +28,7 @@ impl Observe for Health {
 
 impl Observe for SystemHealth {
     #[cfg(not(target_os = "linux"))]
-    fn observe(_data_dir: PathBuf) -> Result<Self, String> {
+    fn observe() -> Result<Self, String> {
         Err("Health is only available on Linux".into())
     }
 
